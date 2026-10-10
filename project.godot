@@ -29,6 +29,10 @@ window/stretch/aspect="expand"
 window/per_pixel_transparency/allowed=true
 window/vsync/vsync_mode=0
 
+[global_group]
+
+fun_spider=""
+
 [gui]
 
 common/auto_focus_strategy=1

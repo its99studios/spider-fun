@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://wwqnjs4034xa"]
+
+[ext_resource type="Texture2D" uid="uid://1233r05qt5tl" path="res://assets/ball.png" id="1_s1nhf"]
+
+[node name="StringBall" type="Node2D" unique_id=362689750]
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1249367842]
+scale = Vector2(0.2, 0.2)
+texture = ExtResource("1_s1nhf")

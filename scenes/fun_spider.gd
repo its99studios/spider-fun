@@ -7,7 +7,8 @@ enum State {
 	FOLLOWING,
 	READING,
 	IDLE,
-	SLEEP
+	SLEEP,
+	ROLLING
 }
 
 @onready var sprite: AnimatedSprite2D = $Sprite
@@ -73,7 +74,22 @@ func _physics_process(delta: float) -> void:
 
 		State.SLEEP:
 			play_animation("sleep")
+		
+		State.ROLLING:
+			play_animation("roll")
+			sprite.flip_h = direction < 0
+			global_position.x += direction * walk_speed / 60.0
+			global_position.y = floor_y
 
+			var half_width: float = get_sprite_size().x / 2.0
+			var screen_width: float = get_viewport_rect().size.x
+
+			if global_position.x >= screen_width - half_width:
+				direction = -1
+				global_position.x = screen_width - half_width
+			elif global_position.x <= half_width:
+				direction = 1
+				global_position.x = half_width
 
 func choose_state() -> void:
 	var choice: float = rng.randf()

@@ -81,7 +81,7 @@ func choose_state() -> void:
 	if choice < 0.15:
 		state = State.JUMPING
 		grounded = false
-		velocity.y = rng.randf_range(-2500.0, -840.0)
+		velocity.y = rng.randf_range(-1920.0, -840.0)
 		velocity.x = rng.randf_range(-300.0, 300.0)
 		state_timer = 30
 	elif choice < 0.23:
@@ -89,13 +89,13 @@ func choose_state() -> void:
 		state_timer = rng.randi_range(300, 1000)
 	elif choice < 0.50:
 		state = State.WALKING
-		state_timer = rng.randi_range(100, 300)
+		state_timer = rng.randi_range(300, 2000)
 	elif choice < 0.65:
 		state = State.READING
-		state_timer = rng.randi_range(200, 400)
+		state_timer = rng.randi_range(200, 700)
 	elif choice < 0.85:
 		state = State.IDLE
-		state_timer = rng.randi_range(60, 150)
+		state_timer = rng.randi_range(60, 300)
 	else:
 		state = State.SLEEP
 		state_timer = rng.randi_range(400, 1000)

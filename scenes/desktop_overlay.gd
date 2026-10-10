@@ -5,6 +5,6 @@ func _ready() -> void:
 	window.transparent = true
 	window.borderless = true
 	window.always_on_top = true
-	window.mouse_passthrough = true
+	window.mouse_passthrough = false
 
-	self_modulate = Color(1, 1, 1, 0)
+	get_viewport().physics_object_picking = true

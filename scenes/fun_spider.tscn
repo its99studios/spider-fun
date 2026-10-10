@@ -71,16 +71,18 @@ animations = [{
 }]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_um37y"]
-size = Vector2(198, 110)
+size = Vector2(159, 90)
 
 [node name="FUNSpider" type="CharacterBody2D" unique_id=672866861]
+input_pickable = true
 script = ExtResource("1_um37y")
 
 [node name="Sprite" type="AnimatedSprite2D" parent="." unique_id=268500844]
-scale = Vector2(0.25, 0.25)
+scale = Vector2(0.2, 0.2)
 sprite_frames = SubResource("SpriteFrames_k2t4q")
 animation = &"idle"
-frame_progress = 0.6873382
+frame_progress = 0.40403897
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=141116781]
+position = Vector2(0.5, 0)
 shape = SubResource("RectangleShape2D_um37y")

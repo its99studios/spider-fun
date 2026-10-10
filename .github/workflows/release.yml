@@ -1,4 +1,4 @@
-name: Spider FUN CI/CD
+name: CD
 
 on:
   push:

@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+
+  pull_request:
+    types:
+      - ready_for_review
+      - synchronize
+
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate Godot Project
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Don't run on commits pushed to a draft PR.
+    # CI starts when the PR becomes ready for review.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.draft == false
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Read Godot version
+        id: godot-version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! -f .godot-version ]]; then
+            echo "::error::Missing .godot-version"
+            exit 1
+          fi
+
+          VERSION="$(tr -d '[:space:]' < .godot-version)"
+
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+-(dev[0-9]+|alpha[0-9]+|beta[0-9]+|rc[0-9]+|stable)$ ]]; then
+            echo "::error::Invalid Godot version: $VERSION"
+            exit 1
+          fi
+
+          GODOT_VERSION="${VERSION/-/.}"
+
+          echo "release_version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "expected_version=$GODOT_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Download Godot
+        shell: bash
+        env:
+          VERSION: ${{ steps.godot-version.outputs.release_version }}
+        run: |
+          set -euo pipefail
+
+          URL="https://github.com/godotengine/godot-builds/releases/download/${VERSION}/Godot_v${VERSION}_linux.x86_64.zip"
+
+          curl --fail --location --silent --show-error \
+            "$URL" \
+            --output "$RUNNER_TEMP/godot.zip"
+
+          mkdir -p "$RUNNER_TEMP/godot"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+
+          GODOT_BIN="$RUNNER_TEMP/godot/Godot_v${VERSION}_linux.x86_64"
+
+          if [[ ! -f "$GODOT_BIN" ]]; then
+            echo "::error::Godot executable not found in downloaded archive"
+            find "$RUNNER_TEMP/godot" -maxdepth 2 -type f
+            exit 1
+          fi
+
+          chmod +x "$GODOT_BIN"
+          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+
+      - name: Verify Godot version
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ steps.godot-version.outputs.expected_version }}
+        run: |
+          set -euo pipefail
+
+          ACTUAL_VERSION="$("$GODOT_BIN" --version)"
+          echo "Expected: $EXPECTED_VERSION"
+          echo "Actual:   $ACTUAL_VERSION"
+
+          if [[ "$ACTUAL_VERSION" != "$EXPECTED_VERSION"* ]]; then
+            echo "::error::Godot version does not match .godot-version"
+            exit 1
+          fi
+
+      - name: Import and validate project
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          "$GODOT_BIN" \
+            --headless \
+            --editor \
+            --path . \
+            --quit

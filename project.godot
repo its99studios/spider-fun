@@ -15,6 +15,8 @@ config/description="FUN Spider is a curious, 8-legged spider that roams around y
 config/version="2.0.0"
 run/main_scene="uid://d33nqh023exjr"
 config/features=PackedStringArray("4.8", "GL Compatibility")
+boot_splash/bg_color=Color(0, 0, 0, 0)
+boot_splash/use_filter=false
 config/icon="uid://wcuhl0fxmnru"
 
 [display]

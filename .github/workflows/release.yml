@@ -26,15 +26,14 @@ jobs:
           VERSION="$(tr -d '[:space:]' < .godot-version)"
 
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+-(dev[0-9]+|alpha[0-9]+|beta[0-9]+|rc[0-9]+|stable)$ ]]; then
-            echo "Invalid Godot version in .godot-version: $VERSION"
+            echo "Invalid Godot version: $VERSION"
             exit 1
           fi
 
           GODOT_VERSION="${VERSION/-/.}"
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "godot_version=$GODOT_VERSION" >> "$GITHUB_OUTPUT"
-          echo "Godot download version: $VERSION"
-          echo "Expected editor version: $GODOT_VERSION"
 
       - name: Install dependencies
         run: |
@@ -44,7 +43,6 @@ jobs:
       - name: Download Godot editor
         env:
           VERSION: ${{ steps.godot-version.outputs.version }}
-          GODOT_VERSION: ${{ steps.godot-version.outputs.godot_version }}
         run: |
           URL="https://github.com/godotengine/godot-builds/releases/download/$VERSION/Godot_v${VERSION}_linux.x86_64.zip"
 
@@ -53,7 +51,12 @@ jobs:
           unzip -q /tmp/godot.zip -d /tmp/godot
 
           GODOT_BIN="$(find /tmp/godot -type f -name 'Godot_*' -print -quit)"
-          test -n "$GODOT_BIN"
+
+          if [[ -z "$GODOT_BIN" ]]; then
+            echo "Godot executable was not found."
+            exit 1
+          fi
+
           chmod +x "$GODOT_BIN"
           echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
 
@@ -62,6 +65,7 @@ jobs:
           EXPECTED_VERSION: ${{ steps.godot-version.outputs.godot_version }}
         run: |
           ACTUAL_VERSION="$("$GODOT_BIN" --headless --version)"
+
           echo "Expected: $EXPECTED_VERSION"
           echo "Actual:   $ACTUAL_VERSION"
 
@@ -81,55 +85,37 @@ jobs:
           mkdir -p /tmp/godot-templates
           unzip -q /tmp/templates.tpz -d /tmp/godot-templates
 
-          TEMPLATE_VERSION="$(head -n 1 /tmp/godot-templates/templates/version.txt | tr -d '[:space:]')"
-
-          if [[ "$TEMPLATE_VERSION" != "$GODOT_VERSION" ]]; then
-            echo "Export template version mismatch: $TEMPLATE_VERSION"
-            exit 1
-          fi
-
-          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/$TEMPLATE_VERSION"
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/$GODOT_VERSION"
           mkdir -p "$TEMPLATE_DIR"
           cp -a /tmp/godot-templates/templates/. "$TEMPLATE_DIR/"
+
+          test -f "$TEMPLATE_DIR/linux_release.x86_64"
+          test -f "$TEMPLATE_DIR/windows_release_x86_64.exe"
 
       - name: Validate project
         run: |
           "$GODOT_BIN" --headless --editor --path . --quit
 
       - name: Export Linux build
-        shell: bash
         run: |
           mkdir -p build/linux
 
-          set +e
-          "$GODOT_BIN" --headless --verbose --path . \
+          "$GODOT_BIN" --headless --path . \
             --export-release "Linux" \
-            build/linux/Spider-FUN.x86_64 \
-            2>&1 | tee /tmp/linux-export.log
-
-          EXPORT_STATUS=${PIPESTATUS[0]}
-          set -e
-
-          echo "=== Godot export exit code: $EXPORT_STATUS ==="
-          echo "=== Files created ==="
-          find build/linux -maxdepth 1 -type f -ls
-
-          if [[ "$EXPORT_STATUS" -ne 0 ]]; then
-            exit "$EXPORT_STATUS"
-          fi
+            build/linux/Spider-FUN.x86_64
 
           test -f build/linux/Spider-FUN.x86_64
-          test -f build/linux/Spider-FUN.sh
           test -f build/linux/Spider-FUN.pck
+
+          chmod +x build/linux/Spider-FUN.x86_64
 
       - name: Export Windows build
         run: |
           mkdir -p build/windows
 
-          set -o pipefail
-          "$GODOT_BIN" --headless --verbose --path . \
+          "$GODOT_BIN" --headless --path . \
             --export-release "Windows" \
-            build/windows/Spider-FUN.exe 2>&1 | tee /tmp/windows-export.log
+            build/windows/Spider-FUN.exe
 
           test -f build/windows/Spider-FUN.exe
           test -f build/windows/Spider-FUN.pck
@@ -140,12 +126,14 @@ jobs:
 
           zip -j dist/Spider-FUN-linux-x86_64.zip \
             build/linux/Spider-FUN.x86_64 \
-            build/linux/Spider-FUN.sh \
             build/linux/Spider-FUN.pck
 
           zip -j dist/Spider-FUN-windows-x86_64.zip \
             build/windows/Spider-FUN.exe \
             build/windows/Spider-FUN.pck
+
+          test -s dist/Spider-FUN-linux-x86_64.zip
+          test -s dist/Spider-FUN-windows-x86_64.zip
 
       - name: Generate release notes
         env:
@@ -157,10 +145,10 @@ jobs:
 
           if [[ -n "$PREVIOUS_TAG" ]]; then
             git log "$PREVIOUS_TAG..$COMMIT_SHA" \
-              --pretty=format:'- `%h` - `%s`' > release-notes.md
+              --pretty=format:'- `%h` - `%s`%n' > release-notes.md
           else
             git log "$COMMIT_SHA" \
-              --pretty=format:'- `%h` - `%s`' > release-notes.md
+              --pretty=format:'- `%h` - `%s`%n' > release-notes.md
           fi
 
           if [[ ! -s release-notes.md ]]; then

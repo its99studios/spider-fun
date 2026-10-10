@@ -19,7 +19,7 @@ var walk_timer: int = 0
 var direction: int = 1
 var walk_speed: float = 60.0
 var gravity: float = 2500.0
-var friction: float = 0.90
+var friction: float = 0.97
 var throw_strength: float = PI
 
 var rng := RandomNumberGenerator.new()
@@ -88,7 +88,7 @@ func choose_state() -> void:
 		state_timer = 30
 	elif choice < 0.23:
 		state = State.FOLLOWING
-		state_timer = rng.randi_range(150, 400)
+		state_timer = rng.randi_range(300, 1000)
 	elif choice < 0.50:
 		state = State.WALKING
 		state_timer = rng.randi_range(100, 300)

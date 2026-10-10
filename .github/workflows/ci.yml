@@ -19,12 +19,10 @@ concurrency:
 
 jobs:
   validate:
-    name: Validate Godot Project
+    name: Validate and Export
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
-    # Don't run on commits pushed to a draft PR.
-    # CI starts when the PR becomes ready for review.
     if: >-
       github.event_name != 'pull_request' ||
       github.event.pull_request.draft == false
@@ -51,10 +49,8 @@ jobs:
             exit 1
           fi
 
-          GODOT_VERSION="${VERSION/-/.}"
-
           echo "release_version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "expected_version=$GODOT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "expected_version=${VERSION/-/.}" >> "$GITHUB_OUTPUT"
 
       - name: Download Godot
         shell: bash
@@ -66,8 +62,7 @@ jobs:
           URL="https://github.com/godotengine/godot-builds/releases/download/${VERSION}/Godot_v${VERSION}_linux.x86_64.zip"
 
           curl --fail --location --silent --show-error \
-            "$URL" \
-            --output "$RUNNER_TEMP/godot.zip"
+            "$URL" --output "$RUNNER_TEMP/godot.zip"
 
           mkdir -p "$RUNNER_TEMP/godot"
           unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
@@ -75,7 +70,7 @@ jobs:
           GODOT_BIN="$RUNNER_TEMP/godot/Godot_v${VERSION}_linux.x86_64"
 
           if [[ ! -f "$GODOT_BIN" ]]; then
-            echo "::error::Godot executable not found in downloaded archive"
+            echo "::error::Godot executable not found"
             find "$RUNNER_TEMP/godot" -maxdepth 2 -type f
             exit 1
           fi
@@ -91,6 +86,7 @@ jobs:
           set -euo pipefail
 
           ACTUAL_VERSION="$("$GODOT_BIN" --version)"
+
           echo "Expected: $EXPECTED_VERSION"
           echo "Actual:   $ACTUAL_VERSION"
 
@@ -99,7 +95,39 @@ jobs:
             exit 1
           fi
 
-      - name: Import and validate project
+      - name: Download export templates
+        shell: bash
+        env:
+          VERSION: ${{ steps.godot-version.outputs.release_version }}
+          GODOT_VERSION: ${{ steps.godot-version.outputs.expected_version }}
+        run: |
+          set -euo pipefail
+
+          URL="https://github.com/godotengine/godot-builds/releases/download/${VERSION}/Godot_v${VERSION}_export_templates.tpz"
+
+          curl --fail --location --silent --show-error \
+            "$URL" --output "$RUNNER_TEMP/export_templates.tpz"
+
+          mkdir -p "$RUNNER_TEMP/templates"
+          unzip -q "$RUNNER_TEMP/export_templates.tpz" \
+            -d "$RUNNER_TEMP/templates"
+
+          SOURCE_DIR="$RUNNER_TEMP/templates/templates"
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/$GODOT_VERSION"
+
+          if [[ ! -d "$SOURCE_DIR" ]]; then
+            echo "::error::Export template directory not found"
+            find "$RUNNER_TEMP/templates" -maxdepth 3 -type f
+            exit 1
+          fi
+
+          mkdir -p "$TEMPLATE_DIR"
+          cp -a "$SOURCE_DIR/." "$TEMPLATE_DIR/"
+
+          test -f "$TEMPLATE_DIR/linux_release.x86_64"
+          test -f "$TEMPLATE_DIR/windows_release_x86_64.exe"
+
+      - name: Import project resources
         shell: bash
         run: |
           set -euo pipefail
@@ -109,3 +137,100 @@ jobs:
             --editor \
             --path . \
             --quit
+
+      - name: Validate GDScript files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > "$RUNNER_TEMP/validate_scripts.gd" <<'GDSCRIPT'
+          extends SceneTree
+
+          var errors: Array[String] = []
+          var checked := 0
+
+          func _initialize() -> void:
+              scan_directory("res://")
+              print("GDScript files checked: ", checked)
+
+              if not errors.is_empty():
+                  for error in errors:
+                      push_error(error)
+                  quit(1)
+                  return
+
+              print("GDScript validation passed.")
+              quit(0)
+
+          func scan_directory(path: String) -> void:
+              var directory := DirAccess.open(path)
+
+              if directory == null:
+                  errors.append("Cannot open directory: " + path)
+                  return
+
+              for filename in directory.get_files():
+                  if filename.ends_with(".gd"):
+                      check_script(path.path_join(filename))
+
+              for dirname in directory.get_directories():
+                  if dirname in [".git", ".godot", "build"]:
+                      continue
+
+                  scan_directory(path.path_join(dirname))
+
+          func check_script(script_path: String) -> void:
+              checked += 1
+
+              var script = ResourceLoader.load(
+                  script_path,
+                  "GDScript",
+                  ResourceLoader.CACHE_MODE_REPLACE
+              )
+
+              if script == null:
+                  errors.append("Failed to load or parse: " + script_path)
+          GDSCRIPT
+
+          "$GODOT_BIN" \
+            --headless \
+            --path . \
+            --script "$RUNNER_TEMP/validate_scripts.gd"
+
+      - name: Export Linux build
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p build/linux
+
+          "$GODOT_BIN" \
+            --headless \
+            --path . \
+            --export-release "Linux" \
+            build/linux/Spider-FUN.x86_64
+
+          test -f build/linux/Spider-FUN.x86_64
+          test -f build/linux/Spider-FUN.pck
+
+      - name: Export Windows build
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p build/windows
+
+          "$GODOT_BIN" \
+            --headless \
+            --path . \
+            --export-release "Windows" \
+            build/windows/Spider-FUN.exe
+
+          test -f build/windows/Spider-FUN.exe
+          test -f build/windows/Spider-FUN.pck
+
+      - name: Clean up temporary builds
+        if: always()
+        shell: bash
+        run: |
+          rm -rf build/linux build/windows

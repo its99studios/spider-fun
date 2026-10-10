@@ -98,6 +98,17 @@ jobs:
 
       - name: Export Linux build
         run: |
+
+          echo "=== Export template directory ==="
+          ls -lah "$HOME/.local/share/godot/export_templates/"
+
+          echo "=== Linux release template ==="
+          find "$HOME/.local/share/godot/export_templates/" \
+            -type f -name 'linux_release.x86_64' -ls
+
+          echo "=== Export preset ==="
+          grep -n -A 12 -B 2 '^\[preset\.' export_presets.cfg  
+
           mkdir -p build/linux
 
           set -o pipefail

@@ -29,11 +29,9 @@ var is_dragging: bool = false
 var drag_offset: Vector2 = Vector2.ZERO
 var last_mouse_position: Vector2 = Vector2.ZERO
 
-
 func _ready() -> void:
 	rng.randomize()
 	sprite.play("idle")
-
 
 func _physics_process(delta: float) -> void:
 	if is_dragging:

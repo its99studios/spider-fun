@@ -11,6 +11,8 @@ enum State {
 	ROLLING
 }
 
+@export var string_ball_scene: PackedScene
+
 @onready var sprite: AnimatedSprite2D = $Sprite
 
 var state: State = State.WALKING
@@ -30,12 +32,23 @@ var is_dragging: bool = false
 var drag_offset: Vector2 = Vector2.ZERO
 var last_mouse_position: Vector2 = Vector2.ZERO
 
+var string_ball: Node2D
+var balance_time: float = 0.0
+var rolling_duration: float = 0.0
+
+
 func _ready() -> void:
 	rng.randomize()
+	add_to_group("fun_spider")
 	sprite.play("idle")
+
 
 func _physics_process(delta: float) -> void:
 	if is_dragging:
+		return
+
+	if state == State.ROLLING:
+		rolling_logic(delta)
 		return
 
 	var floor_y: float = get_viewport_rect().size.y - get_sprite_size().y / 2.0
@@ -74,22 +87,10 @@ func _physics_process(delta: float) -> void:
 
 		State.SLEEP:
 			play_animation("sleep")
-		
+			
 		State.ROLLING:
 			play_animation("roll")
-			sprite.flip_h = direction < 0
-			global_position.x += direction * walk_speed / 60.0
-			global_position.y = floor_y
 
-			var half_width: float = get_sprite_size().x / 2.0
-			var screen_width: float = get_viewport_rect().size.x
-
-			if global_position.x >= screen_width - half_width:
-				direction = -1
-				global_position.x = screen_width - half_width
-			elif global_position.x <= half_width:
-				direction = 1
-				global_position.x = half_width
 
 func choose_state() -> void:
 	var choice: float = rng.randf()
@@ -105,7 +106,7 @@ func choose_state() -> void:
 		state_timer = rng.randi_range(300, 1000)
 	elif choice < 0.50:
 		state = State.WALKING
-		state_timer = rng.randi_range(300, 2000)
+		state_timer = rng.randi_range(300, 1000)
 	elif choice < 0.65:
 		state = State.READING
 		state_timer = rng.randi_range(200, 700)
@@ -115,6 +116,91 @@ func choose_state() -> void:
 	else:
 		state = State.SLEEP
 		state_timer = rng.randi_range(400, 1000)
+
+	# Occasionally roll instead of performing the selected behavior.
+	if rng.randf() < 0.3:
+		begin_rolling()
+
+
+func begin_rolling() -> void:
+	if string_ball_scene == null:
+		push_warning("Assign string_ball_scene in the Inspector.")
+		state = State.IDLE
+		state_timer = 120
+		return
+
+	var new_ball := string_ball_scene.instantiate() as Node2D
+
+	if new_ball == null:
+		push_warning("StringBall scene root must inherit Node2D.")
+		state = State.IDLE
+		state_timer = 120
+		return
+
+	get_tree().current_scene.add_child(new_ball)
+	string_ball = new_ball
+
+	var ball_collision := string_ball.get_node_or_null(
+		"TouchArea/CollisionShape2D"
+	) as CollisionShape2D
+
+	if ball_collision == null or not (ball_collision.shape is RectangleShape2D):
+		push_warning("StringBall needs TouchArea/CollisionShape2D with RectangleShape2D.")
+		string_ball.queue_free()
+		string_ball = null
+		state = State.IDLE
+		state_timer = 120
+		return
+
+	var ball_shape := ball_collision.shape as RectangleShape2D
+	var ball_half_height: float = ball_shape.size.y * absf(ball_collision.global_scale.y) / 2.0
+
+	string_ball.global_position = Vector2(
+		global_position.x,
+		get_viewport_rect().size.y - ball_half_height
+	)
+
+	# Place the spider above the ball's collision shape.
+	var ball_top := ball_collision.to_global(
+		Vector2(0.0, -ball_shape.size.y / 2.0)
+	)
+
+	global_position = Vector2(
+		ball_top.x,
+		ball_top.y - get_sprite_size().y / 2.0
+	)
+
+	velocity = Vector2.ZERO
+	grounded = true
+	state = State.ROLLING
+	rolling_duration = rng.randf_range(3.0, 7.0)
+	balance_time = 0.0
+	sprite.rotation = 0.0
+	play_animation("roll")
+
+
+func rolling_logic(delta: float) -> void:
+	if not is_instance_valid(string_ball):
+		finish_rolling()
+		return
+
+	balance_time += delta
+
+	# Rock the sprite back and forth around its center.
+	sprite.rotation = sin(balance_time * TAU * 2.5) * deg_to_rad(12.0)
+
+	rolling_duration -= delta
+
+	if rolling_duration <= 0.0:
+		finish_rolling()
+
+
+func finish_rolling() -> void:
+	sprite.rotation = 0.0
+	string_ball = null
+	state = State.IDLE
+	state_timer = rng.randi_range(60, 180)
+	play_animation("idle")
 
 
 func walk_logic(floor_y: float) -> void:
@@ -158,6 +244,7 @@ func apply_spider_physics(delta: float, floor_y: float) -> void:
 		global_position.y = floor_y
 		velocity.y = 0.0
 		grounded = true
+
 		if absf(velocity.x) < 30.0:
 			velocity.x = 0.0
 			state = State.IDLE
@@ -211,7 +298,6 @@ func _input(event: InputEvent) -> void:
 				elif velocity.x < 0.0:
 					direction = -1
 
-	
 	elif event is InputEventMouseMotion and is_dragging:
 		var mouse_position: Vector2 = get_global_mouse_position()
 		var movement: Vector2 = mouse_position - last_mouse_position

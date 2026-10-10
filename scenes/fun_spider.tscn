@@ -3,6 +3,7 @@
 [ext_resource type="Texture2D" uid="uid://u33lt0glen28" path="res://assets/idle.png" id="1_4l3hs"]
 [ext_resource type="Script" uid="uid://dv5lr2wtuat4i" path="res://scenes/fun_spider.gd" id="1_um37y"]
 [ext_resource type="Texture2D" uid="uid://b57585fwwgiu6" path="res://assets/pickup.png" id="2_cf23j"]
+[ext_resource type="PackedScene" uid="uid://wwqnjs4034xa" path="res://scenes/string_ball.tscn" id="2_jascv"]
 [ext_resource type="Texture2D" uid="uid://cmn5e56b3ckqd" path="res://assets/read.png" id="3_um37y"]
 [ext_resource type="Texture2D" uid="uid://c6qyrh6ak01r3" path="res://assets/sleep.png" id="4_jascv"]
 [ext_resource type="Texture2D" uid="uid://d0mvpicr2be7f" path="res://assets/walk_1.png" id="5_yyid3"]
@@ -52,7 +53,7 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
-"texture": ExtResource("2_cf23j")
+"texture": ExtResource("1_4l3hs")
 }],
 "loop": 1,
 "name": &"roll",
@@ -81,14 +82,15 @@ animations = [{
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_um37y"]
 size = Vector2(159, 90)
 
-[node name="FUNSpider" type="CharacterBody2D" unique_id=672866861]
+[node name="FUNSpider" type="CharacterBody2D" unique_id=672866861 groups=["fun_spider"]]
 input_pickable = true
 script = ExtResource("1_um37y")
+string_ball_scene = ExtResource("2_jascv")
 
 [node name="Sprite" type="AnimatedSprite2D" parent="." unique_id=268500844]
 scale = Vector2(0.2, 0.2)
 sprite_frames = SubResource("SpriteFrames_k2t4q")
-animation = &"idle"
+animation = &"roll"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=141116781]
 position = Vector2(0.5, 0)

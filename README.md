@@ -1,5 +1,5 @@
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-[![Latest](https://img.shields.io/badge/Latest-2.0.0--dev1-green.svg)](https://github.com/its99studios/spider-fun/releases)
+[![Latest](https://img.shields.io/badge/Latest-2.0.0--dev2-green.svg)](https://github.com/its99studios/spider-fun/releases)
 [![LTS](https://img.shields.io/badge/LTS-1.2.0-blue.svg)](https://github.com/its99studios/spider-fun/releases/latest)
 
 # Spider FUN - Not for those with arachnophobia.

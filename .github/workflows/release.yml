@@ -1,0 +1,164 @@
+name: Spider FUN CI/CD
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Validate, Build, and Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read Godot version
+        id: godot-version
+        shell: bash
+        run: |
+          VERSION="$(tr -d '[:space:]' < .godot-version)"
+
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+-(dev[0-9]+|alpha[0-9]+|beta[0-9]+|rc[0-9]+|stable)$ ]]; then
+            echo "Invalid Godot version in .godot-version: $VERSION"
+            exit 1
+          fi
+
+          GODOT_VERSION="${VERSION/-/.}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "godot_version=$GODOT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Godot download version: $VERSION"
+          echo "Expected editor version: $GODOT_VERSION"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl unzip zip
+
+      - name: Download Godot editor
+        env:
+          VERSION: ${{ steps.godot-version.outputs.version }}
+          GODOT_VERSION: ${{ steps.godot-version.outputs.godot_version }}
+        run: |
+          URL="https://github.com/godotengine/godot-builds/releases/download/$VERSION/Godot_v${VERSION}_linux.x86_64.zip"
+
+          curl -fL "$URL" -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+
+          GODOT_BIN="$(find /tmp/godot -type f -name 'Godot_*' -print -quit)"
+          test -n "$GODOT_BIN"
+          chmod +x "$GODOT_BIN"
+          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+
+      - name: Verify Godot version
+        env:
+          EXPECTED_VERSION: ${{ steps.godot-version.outputs.godot_version }}
+        run: |
+          ACTUAL_VERSION="$("$GODOT_BIN" --headless --version)"
+          echo "Expected: $EXPECTED_VERSION"
+          echo "Actual:   $ACTUAL_VERSION"
+
+          if [[ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]]; then
+            echo "Godot version mismatch."
+            exit 1
+          fi
+
+      - name: Install matching export templates
+        env:
+          VERSION: ${{ steps.godot-version.outputs.version }}
+          GODOT_VERSION: ${{ steps.godot-version.outputs.godot_version }}
+        run: |
+          URL="https://github.com/godotengine/godot-builds/releases/download/$VERSION/Godot_v${VERSION}_export_templates.tpz"
+
+          curl -fL "$URL" -o /tmp/templates.tpz
+          mkdir -p /tmp/godot-templates
+          unzip -q /tmp/templates.tpz -d /tmp/godot-templates
+
+          TEMPLATE_VERSION="$(head -n 1 /tmp/godot-templates/templates/version.txt | tr -d '[:space:]')"
+
+          if [[ "$TEMPLATE_VERSION" != "$GODOT_VERSION" ]]; then
+            echo "Export template version mismatch: $TEMPLATE_VERSION"
+            exit 1
+          fi
+
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/$TEMPLATE_VERSION"
+          mkdir -p "$TEMPLATE_DIR"
+          cp -a /tmp/godot-templates/templates/. "$TEMPLATE_DIR/"
+
+      - name: Validate project
+        run: |
+          "$GODOT_BIN" --headless --editor --path . --quit
+
+      - name: Export Linux build
+        run: |
+          mkdir -p build/linux
+
+          "$GODOT_BIN" --headless --path . \
+            --export-release "Linux" \
+            build/linux/Spider-FUN.x86_64
+
+          test -f build/linux/Spider-FUN.x86_64
+          test -f build/linux/Spider-FUN.sh
+          test -f build/linux/Spider-FUN.pck
+
+      - name: Export Windows build
+        run: |
+          mkdir -p build/windows
+
+          "$GODOT_BIN" --headless --path . \
+            --export-release "Windows" \
+            build/windows/Spider-FUN.exe
+
+          test -f build/windows/Spider-FUN.exe
+          test -f build/windows/Spider-FUN.pck
+
+      - name: Package builds
+        run: |
+          mkdir -p dist
+
+          zip -j dist/Spider-FUN-linux-x86_64.zip \
+            build/linux/Spider-FUN.x86_64 \
+            build/linux/Spider-FUN.sh \
+            build/linux/Spider-FUN.pck
+
+          zip -j dist/Spider-FUN-windows-x86_64.zip \
+            build/windows/Spider-FUN.exe \
+            build/windows/Spider-FUN.pck
+
+      - name: Generate release notes
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          PREVIOUS_TAG="$(git describe --tags --abbrev=0 \
+            "${COMMIT_SHA}^" 2>/dev/null || true)"
+
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            git log "$PREVIOUS_TAG..$COMMIT_SHA" \
+              --pretty=format:'- `%h` - `%s`' > release-notes.md
+          else
+            git log "$COMMIT_SHA" \
+              --pretty=format:'- `%h` - `%s`' > release-notes.md
+          fi
+
+          if [[ ! -s release-notes.md ]]; then
+            echo "- No new commits." > release-notes.md
+          fi
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Spider FUN ${{ github.ref_name }}
+          body_path: release-notes.md
+          prerelease: ${{ contains(github.ref_name, '-dev') }}
+          files: |
+            dist/Spider-FUN-linux-x86_64.zip
+            dist/Spider-FUN-windows-x86_64.zip

@@ -13,15 +13,18 @@ config_version=5
 config/name="Spider FUN"
 config/description="FUN Spider is a curious, 8-legged spider that roams around your desktop. He walks, sleeps, stares, and can even be tossed around across multiple monitors!"
 config/version="2.0.0s"
+run/main_scene="uid://d33nqh023exjr"
 config/features=PackedStringArray("4.8", "GL Compatibility")
-config/icon="res://logov2.svg"
+config/icon="uid://wcuhl0fxmnru"
 
 [display]
 
 window/size/viewport_width=1920
 window/size/viewport_height=1080
+window/size/transparent=true
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/per_pixel_transparency/allowed=true
 window/vsync/vsync_mode=0
 
 [gui]

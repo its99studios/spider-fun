@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://esi185goveo0"]
 
 [ext_resource type="Texture2D" uid="uid://u33lt0glen28" path="res://assets/idle.png" id="1_4l3hs"]
+[ext_resource type="Script" uid="uid://dv5lr2wtuat4i" path="res://scenes/fun_spider.gd" id="1_um37y"]
 [ext_resource type="Texture2D" uid="uid://b57585fwwgiu6" path="res://assets/pickup.png" id="2_cf23j"]
 [ext_resource type="Texture2D" uid="uid://cmn5e56b3ckqd" path="res://assets/read.png" id="3_um37y"]
 [ext_resource type="Texture2D" uid="uid://c6qyrh6ak01r3" path="res://assets/sleep.png" id="4_jascv"]
@@ -69,10 +70,17 @@ animations = [{
 "speed": 6.0
 }]
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_um37y"]
+size = Vector2(198, 110)
+
 [node name="FUNSpider" type="CharacterBody2D" unique_id=672866861]
+script = ExtResource("1_um37y")
 
 [node name="Sprite" type="AnimatedSprite2D" parent="." unique_id=268500844]
 scale = Vector2(0.25, 0.25)
 sprite_frames = SubResource("SpriteFrames_k2t4q")
 animation = &"idle"
-frame_progress = 0.48581028
+frame_progress = 0.6873382
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=141116781]
+shape = SubResource("RectangleShape2D_um37y")

@@ -13,4 +13,4 @@ grow_vertical = 2
 script = ExtResource("1_4su25")
 
 [node name="FUNSpider" parent="." unique_id=672866861 instance=ExtResource("2_atkhc")]
-position = Vector2(969, 552)
+position = Vector2(960, 540)

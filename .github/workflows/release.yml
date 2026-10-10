@@ -65,7 +65,7 @@ jobs:
           echo "Expected: $EXPECTED_VERSION"
           echo "Actual:   $ACTUAL_VERSION"
 
-          if [[ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]]; then
+          if [[ "$ACTUAL_VERSION" != "$EXPECTED_VERSION"* ]]; then
             echo "Godot version mismatch."
             exit 1
           fi

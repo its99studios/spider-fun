@@ -1,5 +1,5 @@
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-1.1.0-green.svg)
+![Version](https://img.shields.io/badge/version-2.0.0-green.svg)
 
 # Spider FUN - Not for those with arachnophobia.
 
@@ -25,13 +25,10 @@ FUN Spider is a curious, 8-legged spider that roams around your desktop. He walk
 
 If you want to run the source code:
 
-1.  Install Python 3.10+
-2. Type `pip install PyQt6` in your terminal. (Only if you haven't before!)
+1.  Install Godot latest (reccomended to install `godot-dev-bin` on Arch Linux)
 
 ## Built With
-* **Python** - The logic.
-* **PyQt6** - The window management and graphics engine.
-* **PyInstaller** - For standalone packaging.
+* **Godot**
 
 ## License
 This project is licensed under the MIT License - feel free to use it and modify it!

@@ -17,7 +17,7 @@ run/main_scene="uid://d33nqh023exjr"
 config/features=PackedStringArray("4.8", "GL Compatibility")
 boot_splash/bg_color=Color(0, 0, 0, 0)
 boot_splash/use_filter=false
-config/icon="uid://wcuhl0fxmnru"
+config/icon="uid://dko4m2ppbe6id"
 
 [display]
 

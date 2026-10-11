@@ -12,7 +12,7 @@ config_version=5
 
 config/name="Spider FUN"
 config/description="FUN Spider is a curious, 8-legged spider that roams around your desktop. He walks, sleeps, stares, and can even be tossed around across multiple monitors!"
-config/version="2.0.0"
+config/version="2.0.1"
 run/main_scene="uid://d33nqh023exjr"
 config/features=PackedStringArray("4.8", "GL Compatibility")
 boot_splash/bg_color=Color(0, 0, 0, 0)

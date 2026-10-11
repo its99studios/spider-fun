@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://wwqnjs4034xa"]
+
+[ext_resource type="Script" uid="uid://dslj01oxnnolu" path="res://scenes/string_ball.gd" id="1_icbcl"]
+[ext_resource type="Texture2D" uid="uid://1233r05qt5tl" path="res://assets/ball.png" id="1_s1nhf"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_s1nhf"]
+size = Vector2(260, 260.00006)
+
+[node name="StringBall" type="Node2D" unique_id=362689750]
+script = ExtResource("1_icbcl")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1249367842]
+scale = Vector2(0.2, 0.2)
+texture = ExtResource("1_s1nhf")
+
+[node name="TouchArea" type="Area2D" parent="." unique_id=1083078469]
+scale = Vector2(0.2, 0.2)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TouchArea" unique_id=1930889308]
+position = Vector2(-1.430511e-05, -8.49366e-06)
+scale = Vector2(0.99999976, 0.99999976)
+shape = SubResource("RectangleShape2D_s1nhf")

@@ -1,0 +1,223 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  ci:
+    name: Run CI
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  release:
+    name: Build and Publish Release
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read Godot version
+        id: godot-version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! -f .godot-version ]]; then
+            echo "::error::Missing .godot-version"
+            exit 1
+          fi
+
+          VERSION="$(tr -d '[:space:]' < .godot-version)"
+
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+-(dev[0-9]+|alpha[0-9]+|beta[0-9]+|rc[0-9]+|stable)$ ]]; then
+            echo "::error::Invalid Godot version: $VERSION"
+            exit 1
+          fi
+
+          echo "release_version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "expected_version=${VERSION/-/.}" >> "$GITHUB_OUTPUT"
+
+      - name: Download Godot
+        shell: bash
+        env:
+          VERSION: ${{ steps.godot-version.outputs.release_version }}
+        run: |
+          set -euo pipefail
+
+          URL="https://github.com/godotengine/godot-builds/releases/download/${VERSION}/Godot_v${VERSION}_linux.x86_64.zip"
+
+          curl --fail --location --silent --show-error \
+            "$URL" --output "$RUNNER_TEMP/godot.zip"
+
+          mkdir -p "$RUNNER_TEMP/godot"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+
+          GODOT_BIN="$RUNNER_TEMP/godot/Godot_v${VERSION}_linux.x86_64"
+
+          if [[ ! -f "$GODOT_BIN" ]]; then
+            echo "::error::Godot executable not found"
+            find "$RUNNER_TEMP/godot" -maxdepth 2 -type f
+            exit 1
+          fi
+
+          chmod +x "$GODOT_BIN"
+          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+
+      - name: Verify Godot version
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ steps.godot-version.outputs.expected_version }}
+        run: |
+          set -euo pipefail
+
+          ACTUAL_VERSION="$("$GODOT_BIN" --version)"
+
+          echo "Expected: $EXPECTED_VERSION"
+          echo "Actual:   $ACTUAL_VERSION"
+
+          if [[ "$ACTUAL_VERSION" != "$EXPECTED_VERSION"* ]]; then
+            echo "::error::Godot version does not match .godot-version"
+            exit 1
+          fi
+
+      - name: Download export templates
+        shell: bash
+        env:
+          VERSION: ${{ steps.godot-version.outputs.release_version }}
+          GODOT_VERSION: ${{ steps.godot-version.outputs.expected_version }}
+        run: |
+          set -euo pipefail
+
+          URL="https://github.com/godotengine/godot-builds/releases/download/${VERSION}/Godot_v${VERSION}_export_templates.tpz"
+
+          curl --fail --location --silent --show-error \
+            "$URL" --output "$RUNNER_TEMP/export_templates.tpz"
+
+          mkdir -p "$RUNNER_TEMP/templates"
+          unzip -q "$RUNNER_TEMP/export_templates.tpz" \
+            -d "$RUNNER_TEMP/templates"
+
+          SOURCE_DIR="$RUNNER_TEMP/templates/templates"
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/$GODOT_VERSION"
+
+          if [[ ! -d "$SOURCE_DIR" ]]; then
+            echo "::error::Export template directory not found"
+            find "$RUNNER_TEMP/templates" -maxdepth 3 -type f
+            exit 1
+          fi
+
+          mkdir -p "$TEMPLATE_DIR"
+          cp -a "$SOURCE_DIR/." "$TEMPLATE_DIR/"
+
+          test -f "$TEMPLATE_DIR/linux_release.x86_64"
+          test -f "$TEMPLATE_DIR/windows_release_x86_64.exe"
+
+      - name: Export Linux build
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p build/linux
+
+          "$GODOT_BIN" \
+            --headless \
+            --path . \
+            --export-release "Linux" \
+            build/linux/Spider-FUN.x86_64
+
+          test -f build/linux/Spider-FUN.x86_64
+          test -f build/linux/Spider-FUN.pck
+
+      - name: Export Windows build
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p build/windows
+
+          "$GODOT_BIN" \
+            --headless \
+            --path . \
+            --export-release "Windows" \
+            build/windows/Spider-FUN.exe
+
+          test -f build/windows/Spider-FUN.exe
+          test -f build/windows/Spider-FUN.pck
+
+      - name: Package release builds
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist
+
+          (
+            cd build/linux
+            zip "$GITHUB_WORKSPACE/dist/Spider-FUN-linux-x86_64.zip" \
+              Spider-FUN.x86_64 Spider-FUN.pck
+          )
+
+          (
+            cd build/windows
+            zip "$GITHUB_WORKSPACE/dist/Spider-FUN-windows-x86_64.zip" \
+              Spider-FUN.exe Spider-FUN.pck
+          )
+
+      - name: Generate release notes
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          PREVIOUS_TAG="$(git describe --tags --abbrev=0 \
+            "${COMMIT_SHA}^" 2>/dev/null || true)"
+
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            RANGE="$PREVIOUS_TAG..$COMMIT_SHA"
+            git log "$RANGE" \
+              --pretty=format:"- [\`%h\`](https://github.com/$REPOSITORY/commit/%H) - %s%n" \
+              > release-notes.md
+          else
+            git log "$COMMIT_SHA" \
+              --pretty=format:"- [\`%h\`](https://github.com/$REPOSITORY/commit/%H) - %s%n" \
+              > release-notes.md
+          fi
+
+          if [[ ! -s release-notes.md ]]; then
+            echo "- No new commits." > release-notes.md
+          fi
+
+      - name: Generate release name
+        id: release-name
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "name=Version $TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ steps.release-name.outputs.name }}
+          body_path: release-notes.md
+          prerelease: ${{ contains(github.ref_name, '-dev') }}
+          files: |
+            dist/Spider-FUN-linux-x86_64.zip
+            dist/Spider-FUN-windows-x86_64.zip
+
+      - name: Clean up temporary builds
+        if: always()
+        shell: bash
+        run: |
+          rm -rf build/linux build/windows dist

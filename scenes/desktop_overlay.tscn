@@ -1,0 +1,16 @@
+[gd_scene format=3 uid="uid://d33nqh023exjr"]
+
+[ext_resource type="Script" uid="uid://cgm0nslbl51p6" path="res://scenes/desktop_overlay.gd" id="1_4su25"]
+[ext_resource type="PackedScene" uid="uid://esi185goveo0" path="res://scenes/fun_spider.tscn" id="2_atkhc"]
+
+[node name="DesktopOverlay" type="Control" unique_id=1537675986]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_4su25")
+
+[node name="FUNSpider" parent="." unique_id=672866861 instance=ExtResource("2_atkhc")]
+position = Vector2(960, 540)

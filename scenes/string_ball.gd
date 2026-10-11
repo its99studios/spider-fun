@@ -25,7 +25,7 @@ func _process(delta: float) -> void:
 
 	check_timer = 1.0
 
-	if rng.randf() < 0.2:
+	if rng.randf() < 0.016:
 		queue_free()
 
 

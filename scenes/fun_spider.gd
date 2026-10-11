@@ -273,6 +273,8 @@ func cursor_over_spider() -> bool:
 
 
 func _input(event: InputEvent) -> void:
+	sprite.rotation = 0.0
+	
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 			get_tree().quit()

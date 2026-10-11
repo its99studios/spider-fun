@@ -1,4 +1,3 @@
-
 extends CharacterBody2D
 
 enum State {
@@ -117,7 +116,6 @@ func choose_state() -> void:
 		state = State.SLEEP
 		state_timer = rng.randi_range(400, 1000)
 
-	# Occasionally roll instead of performing the selected behavior.
 	if rng.randf() < 0.3:
 		begin_rolling()
 
@@ -160,7 +158,6 @@ func begin_rolling() -> void:
 		get_viewport_rect().size.y - ball_half_height
 	)
 
-	# Place the spider above the ball's collision shape.
 	var ball_top := ball_collision.to_global(
 		Vector2(0.0, -ball_shape.size.y / 2.0)
 	)
@@ -186,7 +183,6 @@ func rolling_logic(delta: float) -> void:
 
 	balance_time += delta
 
-	# Rock the sprite back and forth around its center.
 	sprite.rotation = sin(balance_time * TAU * 2.5) * deg_to_rad(12.0)
 
 	rolling_duration -= delta

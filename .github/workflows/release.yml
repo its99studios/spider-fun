@@ -175,50 +175,43 @@ jobs:
           )
 
       - name: Generate release notes
-        shell: bash
         env:
           COMMIT_SHA: ${{ github.sha }}
-          CURRENT_TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
         run: |
-          set -euo pipefail
+          PREVIOUS_TAG="$(git describe --tags --abbrev=0 \
+            "${COMMIT_SHA}^" 2>/dev/null || true)"
 
-          PREVIOUS_TAG="$(
-            git describe --tags --abbrev=0 "${COMMIT_SHA}^" 2>/dev/null || true
-          )"
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            RANGE="$PREVIOUS_TAG..$COMMIT_SHA"
+            git log "$RANGE" \
+              --pretty=format:"- [\`%h\`](https://github.com/$REPOSITORY/commit/%H) - %s%n" \
+              > release-notes.md
+          else
+            git log "$COMMIT_SHA" \
+              --pretty=format:"- [\`%h\`](https://github.com/$REPOSITORY/commit/%H) - %s%n" \
+              > release-notes.md
+          fi
 
-          {
-            echo "## Spider FUN ${CURRENT_TAG}"
-            echo
-            echo "### Changes"
-            echo
+          if [[ ! -s release-notes.md ]]; then
+            echo "- No new commits." > release-notes.md
+          fi
 
-            if [[ -n "$PREVIOUS_TAG" ]]; then
-              git log "${PREVIOUS_TAG}..${COMMIT_SHA}" \
-                --pretty=format:'- `%h` - %s%n'
-            else
-              git log "$COMMIT_SHA" \
-                --pretty=format:'- `%h` - %s%n'
-            fi
-
-            echo
-            echo
-            echo "### Downloads"
-            echo
-            echo "- **Linux (x86_64):** Spider-FUN-linux-x86_64.zip"
-            echo "- **Windows (x86_64):** Spider-FUN-windows-x86_64.zip"
-          } > "$RUNNER_TEMP/release-notes.md"
+      - name: Generate release name
+        id: release-name
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "name=Version $TAG" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Spider FUN ${{ github.ref_name }}
-          body_path: ${{ runner.temp }}/release-notes.md
-          prerelease: >-
-            ${{ contains(github.ref_name, '-dev') ||
-                contains(github.ref_name, '-alpha') ||
-                contains(github.ref_name, '-beta') ||
-                contains(github.ref_name, '-rc') }}
+          name: ${{ steps.release-name.outputs.name }}
+          body_path: release-notes.md
+          prerelease: ${{ contains(github.ref_name, '-dev') }}
           files: |
             dist/Spider-FUN-linux-x86_64.zip
             dist/Spider-FUN-windows-x86_64.zip

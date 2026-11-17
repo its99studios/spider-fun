@@ -7,7 +7,8 @@ enum State {
 	READING,
 	IDLE,
 	SLEEP,
-	ROLLING
+	ROLLING,
+	RUNNING
 }
 
 @export var string_ball_scene: PackedScene
@@ -20,6 +21,7 @@ var walk_timer: int = 0
 
 var direction: int = 1
 var walk_speed: float = 60.0
+var run_speed: float = 180.0
 var gravity: float = 2500.0
 var friction: float = 0.97
 var throw_strength: float = PI
@@ -66,6 +68,11 @@ func _physics_process(delta: float) -> void:
 			if rng.randf() < 0.01:
 				direction *= -1
 			walk_logic(floor_y)
+		
+		State.RUNNING:
+			if rng.randf() < 0.01:
+				direction *= -1
+			run_logic(floor_y)
 
 		State.FOLLOWING:
 			var mouse_x: float = get_global_mouse_position().x
@@ -103,6 +110,9 @@ func choose_state() -> void:
 	elif choice < 0.23:
 		state = State.FOLLOWING
 		state_timer = rng.randi_range(300, 1000)
+	elif choice < 0.33:
+		state = State.RUNNING
+		state_timer = rng.randi_range(300, 1000)
 	elif choice < 0.50:
 		state = State.WALKING
 		state_timer = rng.randi_range(300, 1000)
@@ -111,7 +121,7 @@ func choose_state() -> void:
 		state_timer = rng.randi_range(200, 700)
 	elif choice < 0.85:
 		state = State.IDLE
-		state_timer = rng.randi_range(60, 300)
+		state_timer = rng.randi_range(60, 200)
 	else:
 		state = State.SLEEP
 		state_timer = rng.randi_range(400, 1000)
@@ -211,7 +221,27 @@ func walk_logic(floor_y: float) -> void:
 	if global_position.x >= screen_width - half_width:
 		direction = -1
 		global_position.x = screen_width - half_width
-		velocity.x = -absf(velocity.x)
+		velocity.x = - absf(velocity.x)
+	elif global_position.x <= half_width:
+		direction = 1
+		global_position.x = half_width
+		velocity.x = absf(velocity.x)
+
+	global_position.y = floor_y
+
+func run_logic(floor_y: float) -> void:
+	walk_timer += 1
+	play_animation("run")
+	sprite.flip_h = direction < 0
+	global_position.x += direction * run_speed / 60.0
+
+	var half_width: float = get_sprite_size().x / 2.0
+	var screen_width: float = get_viewport_rect().size.x
+
+	if global_position.x >= screen_width - half_width:
+		direction = -1
+		global_position.x = screen_width - half_width
+		velocity.x = - absf(velocity.x)
 	elif global_position.x <= half_width:
 		direction = 1
 		global_position.x = half_width
